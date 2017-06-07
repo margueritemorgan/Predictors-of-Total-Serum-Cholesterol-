@@ -1,0 +1,345 @@
+libname path 'M:\Documents\BS723';
+
+proc format;
+	value $locationfmt 'B'='buckingham' 'L'='louisa';
+	value $genderfmt 'm'='male' 'f'='female';
+	value framefmt 0='small' 1='medium' 2='large';
+	run;
+
+data cpe;
+set path.diabetes_project;
+
+label bmi= 'body mass index';
+label bp_1d= 'diastolic pressure';
+label bp_1s= 'systolic pressure';
+label chol= 'serum total cholesterol';
+label gender= 'sex';
+label glyhb= 'glycosylated hemoglobin';
+label hdl= 'high density lipoprotein';
+label stab_glu= 'stabilized glucose';
+label ratio= 'cholesterol/hdl ratio';
+label bp_2s= 'follow-up systolic pressure';
+label bp_2d = 'follow-up diastolic pressure';
+label time_ppn = 'postprandial time when labs were drawn';
+
+format location $locationfmt. gender $genderfmt. frame framefmt.;
+
+if bp_1d=9999 then bp_1d=.;
+if bp_1s=9999 then bp_1s=.;
+if chol=9999 then chol=.;
+if frame=9999 then frame=.;
+if glyhb=9999 then glyhb=.;
+if hdl=9999 then hdl=.;
+if height=9999 then height=.;
+if hip=9999 then hip=.;
+if waist=9999 then waist=.;
+if weight=9999 then weight=.;
+if ratio=9999 then ratio=.;
+if stab_glu=9999 then stab_glu=.;
+if age=9999 then age=.;
+if bp_2s=9999 then bp_2s=.;
+if bp_2d=9999 then bp_2d=.;
+if time_ppn=9999 then time_ppn=.;
+
+bmi=(weight*703)/(height*height);
+run;
+
+/*Part 1 Question 2 */
+data cpe;
+set cpe;
+rename chol=proj_outcome;
+run;
+
+/*Part 2 */
+proc univariate data=cpe normal plot;
+var proj_outcome;
+run;
+proc gchart data=cpe;
+vbar proj_outcome;
+run;
+
+/*Part 3 Question a */
+proc univariate data=cpe normal plot;
+var stab_glu hdl ratio glyhb age bp_1s bp_1d bmi height weight bp_2s bp_2d waist hip time_ppn;
+run;
+proc gchart data=cpe;
+title1 'Histogram of stab-glu';
+vbar stab_glu;
+run;
+proc gchart data=cpe;
+vbar glyhb;
+run;
+proc gchart data=cpe;
+vbar bp_1s;
+run;
+proc gchart data=cpe;
+vbar time_ppn;
+run;
+proc gchart data=cpe;
+title1 'Histogram of ratio';
+vbar ratio;
+run;
+data cpe2;
+set cpe;
+id+1;
+run;
+proc reg data=cpe2;
+model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn;
+output out = OutlierDat1 (keep= id stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn rst lev cd dffit)
+	rstudent = rst h = lev cookd = CD dffits = DFFIT;
+run;
+quit;
+
+proc univariate data=OutlierDat1 plots;
+var rst;
+run;
+
+proc print data=OutlierDat1;
+title1 'Outliers';
+var id rst;
+where rst>3 or rst<-3 and rst^=.;
+run;
+
+proc univariate data=OutlierDat1 plots;
+var lev;
+run;
+proc print data=OutlierDat1;
+title1 'Leverage points';
+var id lev;
+where lev>(2*(15+1))/136;
+run;
+
+proc univariate data=OutlierDat1;
+var cd abs(dffit);
+run;
+proc sort data=OutlierDat1;
+by cd dffit;
+run;
+proc print data=OutlierDat1;
+title1 'Influential points';
+var id cd dffit;
+where cd>4/136 and abs(dffit)>(2*sqrt(16/136));
+run;
+
+data cpe3;
+set cpe2;
+if id=2779 then delete;
+run;
+
+proc univariate data=cpe3 normal plot;
+var stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn;
+run;
+
+proc gchart data=cpe3;
+title1 'New Histogram of Ratio';
+vbar ratio;
+run;
+
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn;
+run;
+quit;
+
+/*Part 3 Question b */
+proc means data=cpe3 n mean median std qrange;
+title1 'Table 1.A';
+var stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn;
+run;
+
+proc freq data=cpe3;
+title1 'Table 1.B';
+tables location gender frame;
+run;
+
+/*Part 4 Question a */
+proc corr data=cpe3 spearman pearson;
+var proj_outcome stab_glu;
+run;
+proc corr data=cpe3;
+var proj_outcome hdl;
+run;
+proc corr data=cpe3 spearman pearson;
+var proj_outcome glyhb;
+run;
+proc corr data=cpe3;
+var proj_outcome age;
+run;
+proc corr data=cpe3 spearman pearson;
+var proj_outcome bp_1s;
+run;
+proc corr data=cpe3;
+var proj_outcome bp_1d;
+run;
+proc corr data=cpe3;
+var proj_outcome bmi;
+run;
+proc corr data=cpe3 spearman pearson;
+var proj_outcome ratio;
+run;
+proc corr data=cpe3;
+var proj_outcome height;
+run;
+proc corr data=cpe3;
+var proj_outcome weight;
+run;
+proc corr data=cpe3;
+var proj_outcome bp_2s;
+run;
+proc corr data=cpe3;
+var proj_outcome bp_2d;
+run;
+proc corr data=cpe3;
+var proj_outcome waist;
+run;
+proc corr data=cpe3;
+var proj_outcome hip;
+run;
+proc corr data=cpe3 pearson spearman;
+var proj_outcome time_ppn;
+run;
+
+/*Part 4 Question b */
+proc sort data=cpe3;
+by location;
+run;
+proc ttest data=cpe3;
+class location;
+var proj_outcome;
+run;
+
+proc sort data=cpe3;
+by gender;
+run;
+proc ttest data=cpe3;
+class gender;
+var proj_outcome;
+run;
+
+proc sort data=cpe3;
+by frame;
+run;
+proc boxplot data=cpe3;
+plot proj_outcome*frame;
+run;
+proc anova data=cpe3;
+class frame;
+model proj_outcome = frame;
+means frame;
+means frame / tukey cldiff;
+run;
+
+/*Part 5 Question 1. a) */
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d ratio waist frame;
+run; quit;
+
+/*Part 5 Quesetion 1. b) */
+data interact;
+set cpe3;
+bp_1s_age = bp_1s*age;
+run;
+proc reg data=interact;
+model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d ratio waist frame bp_1s_age;
+run; quit;
+
+/*Part 5 Question 1. c) */
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb bp_1s bp_1d ratio waist frame;
+run; quit;
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb bp_1s bp_1d ratio waist;
+run; quit;
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb bp_1d ratio waist;
+run; quit;
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb bp_1d ratio;
+run; quit;
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb ratio;
+run; quit;
+
+/*Part 5 Question 1. d) */
+/*Assessing normality*/
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb ratio;
+output out = resData (keep= proj_outcome stab_glu hdl glyhb ratio r pred)
+residual=r predicted=pred;
+run; quit;
+proc gchart data=resData;
+title1 'Histogram of Residuals';
+vbar r;
+run;
+proc univariate data=resData normal plot;
+var r;
+qqplot r;
+run;
+/*Assessing constant variance*/
+proc gplot data=resData;
+title1 'Scatterplot of Residuals*Predicted Values';
+plot r*pred;
+run;
+/*Assessing linearity*/
+proc reg data=cpe3;
+title1 'Scatterplot for Linearity';
+model proj_outcome = stab_glu hdl glyhb ratio;
+plot residual.*predicted.;
+plot proj_outcome*stab_glu proj_outcome*hdl proj_outcome*glyhb proj_outcome*ratio;
+run;quit;
+
+/*Part 5 Question 1. e) */
+/*Finding outliers*/
+proc reg data=cpe3;
+model proj_outcome = stab_glu hdl glyhb ratio;
+output out = outlierDat2 (keep= id proj_outcome stab_glu hdl glyhb ratio rst lev cd dffit)
+rstudent=rst h=lev cookd=CD dffits=DFFIT;
+run; quit;
+proc univariate data=outlierDat2 plots;
+var rst;
+run;
+proc print data=outlierDat2;
+title1 'Outliers';
+var id rst;
+where rst>3 or rst<-3 and rst^=.;
+run;
+/*Finding leverage points*/
+proc univariate data=outlierDat2 plots;
+var lev;
+run;
+proc print data=outlierDat2;
+title1 'Leverage Points';
+var id lev;
+where lev>((2*(4+1))/388);
+run;
+/*Finding influential points*/
+proc univariate data=outlierDat2;
+var cd dffit;
+run;
+proc sort data=outlierDat2;
+by cd abs(dffit);
+run;
+proc print data=outlierDat2;
+title1 'Influential Points';
+var id cd dffit;
+where cd>(4/388) and abs(dffit)>2*sqrt((4+1)/388);
+run;
+
+data cpe4;
+set cpe3;
+if id=2795 then delete;
+if id=16006 then delete;
+run;
+
+proc reg data=cpe4;
+title1 'Regression With Outliers Deleted';
+model proj_outcome = stab_glu hdl glyhb ratio;
+run;
+quit;
+
+proc reg data=cpe4;
+title1 'Standardized regression coefficients';
+model proj_outcome = stab_glu hdl glyhb ratio / stb;
+run; quit;
+
+
+ 
