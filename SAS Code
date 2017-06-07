@@ -44,13 +44,12 @@ if time_ppn=9999 then time_ppn=.;
 bmi=(weight*703)/(height*height);
 run;
 
-/*Part 1 Question 2 */
 data cpe;
 set cpe;
 rename chol=proj_outcome;
 run;
 
-/*Part 2 */
+/*Test for normality of dependent variable using Shapiro-Wilk Test and viewing histogram of distribution */
 proc univariate data=cpe normal plot;
 var proj_outcome;
 run;
@@ -58,7 +57,7 @@ proc gchart data=cpe;
 vbar proj_outcome;
 run;
 
-/*Part 3 Question a */
+/*Test for normality of independent variables using Shapiro-Wilk Teset and viewing histogram of each distriubtion*/
 proc univariate data=cpe normal plot;
 var stab_glu hdl ratio glyhb age bp_1s bp_1d bmi height weight bp_2s bp_2d waist hip time_ppn;
 run;
@@ -79,6 +78,8 @@ proc gchart data=cpe;
 title1 'Histogram of ratio';
 vbar ratio;
 run;
+
+/*Search for outliers by looking at the standardized residuals, leverage scores, and cook's distance*/
 data cpe2;
 set cpe;
 id+1;
@@ -121,11 +122,13 @@ var id cd dffit;
 where cd>4/136 and abs(dffit)>(2*sqrt(16/136));
 run;
 
+/*Delete data point 2779 because it is an outlier, influential point, and leverage point*/
 data cpe3;
 set cpe2;
 if id=2779 then delete;
 run;
 
+/*Get descriptive statistics for continuous variables*/
 proc univariate data=cpe3 normal plot;
 var stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn;
 run;
@@ -140,18 +143,18 @@ model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight 
 run;
 quit;
 
-/*Part 3 Question b */
 proc means data=cpe3 n mean median std qrange;
 title1 'Table 1.A';
 var stab_glu hdl glyhb age bp_1s bp_1d bmi ratio height weight bp_2s bp_2d waist hip time_ppn;
 run;
 
+/*Get descriptive statisticis for categorical variables*/
 proc freq data=cpe3;
 title1 'Table 1.B';
 tables location gender frame;
 run;
 
-/*Part 4 Question a */
+/*Test for significant correlation between dependent and each continuous independent variable using Spearman or Pearson correlation coefficient*/
 proc corr data=cpe3 spearman pearson;
 var proj_outcome stab_glu;
 run;
@@ -198,7 +201,7 @@ proc corr data=cpe3 pearson spearman;
 var proj_outcome time_ppn;
 run;
 
-/*Part 4 Question b */
+/*2 Sample TTest to determine how cholesterol levels vary among locations and genders*/
 proc sort data=cpe3;
 by location;
 run;
@@ -218,9 +221,12 @@ run;
 proc sort data=cpe3;
 by frame;
 run;
+
+/*test for equal variance of frame variable in order to determine if reqwuirement for ANOVA test are met*/
 proc boxplot data=cpe3;
 plot proj_outcome*frame;
 run;
+/*perform anova test to determine significant difference in cholesterol among different frames*/
 proc anova data=cpe3;
 class frame;
 model proj_outcome = frame;
@@ -228,12 +234,12 @@ means frame;
 means frame / tukey cldiff;
 run;
 
-/*Part 5 Question 1. a) */
+/*Only include variables significantly associated with cholesterol */
 proc reg data=cpe3;
 model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d ratio waist frame;
 run; quit;
 
-/*Part 5 Quesetion 1. b) */
+/*Test for interaction between age and cholesterol */
 data interact;
 set cpe3;
 bp_1s_age = bp_1s*age;
@@ -242,7 +248,7 @@ proc reg data=interact;
 model proj_outcome = stab_glu hdl glyhb age bp_1s bp_1d ratio waist frame bp_1s_age;
 run; quit;
 
-/*Part 5 Question 1. c) */
+/*Remove least significant variables one at a time*/
 proc reg data=cpe3;
 model proj_outcome = stab_glu hdl glyhb bp_1s bp_1d ratio waist frame;
 run; quit;
@@ -259,7 +265,7 @@ proc reg data=cpe3;
 model proj_outcome = stab_glu hdl glyhb ratio;
 run; quit;
 
-/*Part 5 Question 1. d) */
+/*Check multiple linear regression assumptions*/
 /*Assessing normality*/
 proc reg data=cpe3;
 model proj_outcome = stab_glu hdl glyhb ratio;
@@ -287,7 +293,6 @@ plot residual.*predicted.;
 plot proj_outcome*stab_glu proj_outcome*hdl proj_outcome*glyhb proj_outcome*ratio;
 run;quit;
 
-/*Part 5 Question 1. e) */
 /*Finding outliers*/
 proc reg data=cpe3;
 model proj_outcome = stab_glu hdl glyhb ratio;
@@ -336,6 +341,7 @@ model proj_outcome = stab_glu hdl glyhb ratio;
 run;
 quit;
 
+/*determine predictive importance of independent variables in the final regression model*/
 proc reg data=cpe4;
 title1 'Standardized regression coefficients';
 model proj_outcome = stab_glu hdl glyhb ratio / stb;
